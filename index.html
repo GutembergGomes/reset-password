@@ -113,35 +113,59 @@
         confirmInput.disabled = true;
         submitBtn.disabled = true;
         
-        // Verificar sessão
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-                enableForm();
-            } else {
-                // Aguarda um pouco para ver se o onAuthStateChange dispara (link mágico)
-                setTimeout(() => {
-                    supabase.auth.getSession().then(({ data: { session } }) => {
-                        if (!session) {
-                            showMessage('error', 'Link inválido ou expirado. Por favor, solicite uma nova redefinição.');
-                        }
-                    });
-                }, 1000);
-            }
-        });
-
+        // Monitorar estado da autenticação com mais detalhes
         supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth event:', event);
-            if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+            console.log('Evento de Autenticação:', event);
+            
+            if (event === 'PASSWORD_RECOVERY') {
+                console.log('Modo de recuperação de senha detectado.');
+                enableForm();
+                showMessage('info', 'Sessão de recuperação ativa. Digite sua nova senha.');
+            } else if (event === 'SIGNED_IN') {
+                console.log('Usuário autenticado.');
                 enableForm();
             } else if (event === 'SIGNED_OUT') {
+                console.log('Usuário desconectado.');
                 disableForm();
             }
         });
+
+        // Verificação inicial robusta
+        (async function init() {
+            // Verifica se tem hash na URL (indicativo de redirecionamento do Supabase)
+            const hash = window.location.hash;
+            if (hash && hash.includes('type=recovery')) {
+                console.log('Hash de recuperação detectado na URL');
+                // O cliente do Supabase deve processar isso automaticamente
+            }
+
+            const { data: { session }, error } = await supabase.auth.getSession();
+            
+            if (error) {
+                console.error('Erro ao verificar sessão:', error);
+                showMessage('error', 'Erro ao verificar permissão. Tente clicar no link do email novamente.');
+            } else if (session) {
+                console.log('Sessão encontrada na inicialização.');
+                enableForm();
+            } else {
+                console.log('Nenhuma sessão ativa inicialmente. Aguardando processamento do link...');
+                // Timeout de segurança caso o link não processe
+                setTimeout(async () => {
+                    const { data: { session: currentSession } } = await supabase.auth.getSession();
+                    if (!currentSession) {
+                        showMessage('error', 'Link inválido ou expirado. Solicite uma nova redefinição de senha.');
+                    }
+                }, 2000);
+            }
+        })();
 
         function enableForm() {
             passwordInput.disabled = false;
             confirmInput.disabled = false;
             submitBtn.disabled = false;
+            if (messageDiv.textContent.includes('Link inválido')) {
+                messageDiv.classList.add('hidden'); // Oculta mensagem de erro anterior se ativou
+            }
         }
 
         function disableForm() {
