@@ -97,7 +97,8 @@
         const SUPABASE_URL = 'https://orryqrjtzsvsvahsczse.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycnlxcmp0enN2c3ZhaHNjenNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NTYxNjEsImV4cCI6MjA3OTUzMjE2MX0.4Z0Np0DkRvO1vOowihV_La5xSIbZttaJOxY7kMOmfgI';
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Evitar redeclaração usando var ou window.supabaseClient
+        var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // UI Elements
         const form = document.getElementById('resetForm');
@@ -114,7 +115,7 @@
         submitBtn.disabled = true;
         
         // Monitorar estado da autenticação com mais detalhes
-        supabase.auth.onAuthStateChange(async (event, session) => {
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
             console.log('Evento de Autenticação:', event);
             
             if (event === 'PASSWORD_RECOVERY') {
@@ -143,7 +144,7 @@
                 const refreshToken = params.get('refresh_token');
 
                 if (accessToken) {
-                    const { error } = await supabase.auth.setSession({
+                    const { error } = await supabaseClient.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken
                     });
@@ -155,7 +156,7 @@
                 }
             }
 
-            const { data: { session }, error } = await supabase.auth.getSession();
+            const { data: { session }, error } = await supabaseClient.auth.getSession();
             
             if (error) {
                 console.error('Erro ao verificar sessão:', error);
@@ -167,7 +168,7 @@
                 console.log('Nenhuma sessão ativa inicialmente. Aguardando...');
                 // Timeout de segurança
                 setTimeout(async () => {
-                    const { data: { session: currentSession } } = await supabase.auth.getSession();
+                    const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
                     if (!currentSession) {
                        // Se ainda não tiver sessão, apenas loga, não bloqueia o usuário imediatamente
                        // pois o evento onAuthStateChange pode disparar depois
@@ -216,7 +217,7 @@
 
             try {
                 // Tenta atualizar usando updateUser (para usuários logados)
-                const { data, error } = await supabase.auth.updateUser({
+                const { data, error } = await supabaseClient.auth.updateUser({
                     password: password
                 });
 
@@ -224,7 +225,9 @@
 
                 showMessage('success', 'Senha atualizada com sucesso! Redirecionando...');
                 
-                setTimeout(() => {
+                // Aguarda 2 segundos antes de redirecionar
+                setTimeout(async () => {
+                    await supabaseClient.auth.signOut();
                     window.location.href = 'index.html';
                 }, 2000);
 
