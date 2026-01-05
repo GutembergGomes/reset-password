@@ -132,30 +132,48 @@
 
         // Verificação inicial robusta
         (async function init() {
-            // Verifica se tem hash na URL (indicativo de redirecionamento do Supabase)
+            // Tenta processar o hash da URL manualmente se o Supabase não pegar
             const hash = window.location.hash;
             if (hash && hash.includes('type=recovery')) {
-                console.log('Hash de recuperação detectado na URL');
-                // O cliente do Supabase deve processar isso automaticamente
+                console.log('Hash de recuperação detectado na URL, forçando verificação de sessão...');
+                
+                // Extrai o access_token do hash manualmente se necessário
+                const params = new URLSearchParams(hash.replace('#', ''));
+                const accessToken = params.get('access_token');
+                const refreshToken = params.get('refresh_token');
+
+                if (accessToken) {
+                    const { error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    });
+                    if (!error) {
+                        console.log('Sessão restaurada manualmente via token da URL.');
+                        enableForm();
+                        return;
+                    }
+                }
             }
 
             const { data: { session }, error } = await supabase.auth.getSession();
             
             if (error) {
                 console.error('Erro ao verificar sessão:', error);
-                showMessage('error', 'Erro ao verificar permissão. Tente clicar no link do email novamente.');
+                // showMessage('error', 'Erro ao verificar permissão. Tente clicar no link do email novamente.');
             } else if (session) {
                 console.log('Sessão encontrada na inicialização.');
                 enableForm();
             } else {
-                console.log('Nenhuma sessão ativa inicialmente. Aguardando processamento do link...');
-                // Timeout de segurança caso o link não processe
+                console.log('Nenhuma sessão ativa inicialmente. Aguardando...');
+                // Timeout de segurança
                 setTimeout(async () => {
                     const { data: { session: currentSession } } = await supabase.auth.getSession();
                     if (!currentSession) {
-                        showMessage('error', 'Link inválido ou expirado. Solicite uma nova redefinição de senha.');
+                       // Se ainda não tiver sessão, apenas loga, não bloqueia o usuário imediatamente
+                       // pois o evento onAuthStateChange pode disparar depois
+                       console.log('Sessão ainda não estabelecida.');
                     }
-                }, 2000);
+                }, 3000);
             }
         })();
 
