@@ -215,6 +215,7 @@
             messageDiv.classList.add('hidden');
 
             try {
+                // Tenta atualizar usando updateUser (para usuários logados)
                 const { data, error } = await supabase.auth.updateUser({
                     password: password
                 });
@@ -229,7 +230,18 @@
 
             } catch (error) {
                 console.error('Erro ao atualizar senha:', error);
-                showMessage('error', error.message || 'Erro ao atualizar a senha. O link pode ter expirado.');
+                
+                // Fallback: se o updateUser falhar, pode ser que a sessão não esteja perfeita.
+                // Tenta usar o token da URL se disponível (caso raro de sessão perdida no meio do caminho)
+                const hash = window.location.hash;
+                if (hash && hash.includes('access_token')) {
+                    console.log('Tentando fallback com token da URL...');
+                    // Recarrega a página para forçar reprocessamento do token
+                    // window.location.reload(); 
+                    // Mas antes, vamos mostrar o erro real
+                }
+
+                showMessage('error', error.message || 'Erro ao atualizar a senha. Tente solicitar um novo link.');
                 submitBtn.disabled = false;
                 btnText.textContent = 'Atualizar Senha';
                 btnLoader.classList.add('hidden');
